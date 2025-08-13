@@ -17,14 +17,25 @@ exports.createSession = async (req, res, next) => {
         whatsapp.onQRUpdated(async (data) => {
             if (res && !res.headersSent) {
                 const qr = await toDataURL(data.qr);
+
+                // Strip the prefix from the Data URL so we can send binary
+                const base64Data = qr.replace(/^data:image\/png;base64,/, "");
+                const imgBuffer = Buffer.from(base64Data, "base64");
+
                 if (scan && data.sessionId == sessionName) {
                     res.render("scan", {qr: qr});
                 } else {
-                    res.status(200).json(
+                    res.writeHead(200, {
+                        "Content-Type": "image/png",
+                        "Content-Length": imgBuffer.length,
+                    });
+                    res.end(imgBuffer);
+
+                    /*res.status(200).json(
                         responseSuccessWithData({
                             qr: qr,
                         })
-                    );
+                    );*/
                 }
             }
         });
@@ -41,9 +52,7 @@ exports.deleteSession = async (req, res, next) => {
             throw new ValidationError("session Required");
         }
         whatsapp.deleteSession(sessionName);
-        res
-            .status(200)
-            .json(responseSuccessWithMessage("Success Deleted " + sessionName));
+        res.status(200).json(responseSuccessWithMessage("Success Deleted " + sessionName));
     } catch (error) {
         next(error);
     }
